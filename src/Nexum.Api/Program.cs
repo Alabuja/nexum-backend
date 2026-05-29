@@ -15,6 +15,7 @@ using Nexum.Modules.Auth.Application.Services;
 using Nexum.Modules.Auth.Domain.Entities;
 using Nexum.Modules.Auth.Domain.Enums;
 using Nexum.Modules.Auth.Infrastructure.Persistence;
+using Nexum.Modules.Booking.Application.Services;
 using Nexum.Modules.Emergency.Application;
 using Nexum.Modules.MissingPersons.Application;
 using Nexum.Modules.Parking.Application;
@@ -139,6 +140,14 @@ builder.Services.AddScoped<IMissingPersonService, MissingPersonService>();
 builder.Services.AddScoped<IParkingService, ParkingService>();
 builder.Services.AddScoped<ITransitService, TransitService>();
 
+// ── Booking services ──────────────────────────────────────────
+builder.Services.AddSingleton<BookingLockRegistry>(); // Singleton for SemaphoreSlim registry
+builder.Services.AddScoped<IPropertyService, PropertyService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IHostApplicationService, HostApplicationService>();
+builder.Services.AddScoped<IPaystackService, PaystackService>();
+builder.Services.AddHttpClient<IPaystackService, PaystackService>();
+
 // ── Infrastructure services ───────────────────────────────────
 builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
 builder.Services.AddScoped<IGeofenceRepository, GeofenceRepository>();
@@ -228,11 +237,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Middleware pipeline ───────────────────────────────────────
-if (app.Environment.IsDevelopment())
-{
+////if (app.Environment.IsDevelopment())
+////{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+//}
 
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
@@ -261,6 +270,12 @@ app.MapHub<ShuttleHub>("/hubs/shuttle");
 
 // Register recurring jobs
 EscalationJobs.RegisterRecurringJobs();
+
+// ── Hangfire: expired booking cleanup ─────────────────────────
+RecurringJob.AddOrUpdate<IBookingService>(
+    "expire-pending-bookings",
+    svc => ((BookingService)svc).ExpireOldBookingsAsync(default),
+    "*/5 * * * *"); // every 5 minutes
 
 app.Run();
 

@@ -9,9 +9,10 @@ public static class Roles
     public const string SecurityOfficer  = "security_officer";
     public const string Driver           = "driver";
     public const string Admin            = "admin";
+    public const string Host             = "host";
 
     public static readonly string[] All =
     [
-        Worshipper, MedicalOfficer, SecurityOfficer, Driver, Admin
+        Worshipper, MedicalOfficer, SecurityOfficer, Driver, Admin, Host
     ];
 }

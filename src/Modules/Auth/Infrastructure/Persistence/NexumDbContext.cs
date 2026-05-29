@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using Nexum.Modules.Auth.Domain.Entities;
+using Nexum.Modules.Booking.Domain.Entities;
 using Nexum.Modules.Emergency.Domain.Entities;
 using Nexum.Modules.MissingPersons.Domain.Entities;
 using Nexum.Modules.Parking.Domain.Entities;
@@ -41,6 +42,13 @@ public sealed class NexumDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ShuttleVehicle> ShuttleVehicles => Set<ShuttleVehicle>();
     public DbSet<ShuttleRequest> ShuttleRequests => Set<ShuttleRequest>();
     public DbSet<CongestionSnapshot> CongestionSnapshots => Set<CongestionSnapshot>();
+
+    // Booking
+    public DbSet<Property> Properties => Set<Property>();
+    public DbSet<RoomType> RoomTypes => Set<RoomType>();
+    public DbSet<RoomAvailability> RoomAvailabilities => Set<RoomAvailability>();
+    public DbSet<BookingEntity> Bookings => Set<BookingEntity>();
+    public DbSet<HostApplication> HostApplications => Set<HostApplication>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
