@@ -144,6 +144,7 @@ builder.Services.AddScoped<ITransitService, TransitService>();
 builder.Services.AddSingleton<BookingLockRegistry>(); // Singleton for SemaphoreSlim registry
 builder.Services.AddScoped<IPropertyService, PropertyService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<IHostApplicationService, HostApplicationService>();
 builder.Services.AddScoped<IPaystackService, PaystackService>();
 builder.Services.AddHttpClient<IPaystackService, PaystackService>();
@@ -272,9 +273,9 @@ app.MapHub<ShuttleHub>("/hubs/shuttle");
 EscalationJobs.RegisterRecurringJobs();
 
 // ── Hangfire: expired booking cleanup ─────────────────────────
-RecurringJob.AddOrUpdate<IBookingService>(
+RecurringJob.AddOrUpdate<BookingService>(
     "expire-pending-bookings",
-    svc => ((BookingService)svc).ExpireOldBookingsAsync(default),
+    svc => svc.ExpireOldBookingsAsync(default),
     "*/5 * * * *"); // every 5 minutes
 
 app.Run();
