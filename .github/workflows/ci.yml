@@ -1,0 +1,94 @@
+name: Nexum Backend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexum_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Nexum.sln
+
+      - name: Build
+        run: dotnet build Nexum.sln --no-restore --configuration Release
+
+      - name: Run unit tests
+        run: |
+          dotnet test tests/Nexum.UnitTests/Nexum.UnitTests.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=unit-test-results.xml" \
+            --collect:"XPlat Code Coverage"
+
+      - name: Run integration tests
+        run: |
+          dotnet test tests/Nexum.IntegrationTests/Nexum.IntegrationTests.csproj \
+            --no-build --configuration Release \
+            --logger "trx;LogFileName=integration-test-results.xml"
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=nexum_ci;Username=postgres;Password=postgres"
+          Jwt__Secret: "ci-test-secret-key-that-is-long-enough-32chars"
+          Jwt__Issuer: "nexum-ci"
+          Jwt__Audience: "nexum-ci-clients"
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: '**/*test-results.xml'
+          reporter: dotnet-trx
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish
+        run: dotnet publish src/Nexum.Api/Nexum.Api.csproj -c Release -o ./publish
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /var/www/nexum
+            sudo systemctl stop nexum-api
+            rsync -av --delete ./publish/ /var/www/nexum/
+            sudo systemctl start nexum-api
+            echo "Deployment complete"

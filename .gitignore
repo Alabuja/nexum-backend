@@ -1,0 +1,30 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+
+## Secrets — NEVER commit these
+appsettings.Development.json
+appsettings.Production.json
+firebase-credentials.json
+*.pfx
+*.p12
+.env
+.env.local
+
+## Logs
+logs/
+*.log
+
+## Test results
+TestResults/
+coverage/
+*.trx
+*.coveragexml
+
+## OS
+.DS_Store
+Thumbs.db
