@@ -49,6 +49,8 @@ public sealed class NexumDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RoomAvailability> RoomAvailabilities => Set<RoomAvailability>();
     public DbSet<BookingEntity> Bookings => Set<BookingEntity>();
     public DbSet<HostApplication> HostApplications => Set<HostApplication>();
+    public DbSet<HostBankAccount> HostBankAccounts => Set<HostBankAccount>();
+    public DbSet<BookingTransfer> BookingTransfers => Set<BookingTransfer>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

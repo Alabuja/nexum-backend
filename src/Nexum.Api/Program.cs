@@ -148,6 +148,10 @@ builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<IHostApplicationService, HostApplicationService>();
 builder.Services.AddScoped<IPaystackService, PaystackService>();
 builder.Services.AddHttpClient<IPaystackService, PaystackService>();
+builder.Services.AddScoped<IHostBankAccountService, HostBankAccountService>();
+builder.Services.AddScoped<IPayoutService, PayoutService>();
+builder.Services.AddScoped<PayoutService>(); // concrete for Hangfire
+builder.Services.AddHttpClient<IPaystackTransferService, PaystackTransferService>();
 
 // ── Infrastructure services ───────────────────────────────────
 builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
@@ -277,6 +281,12 @@ RecurringJob.AddOrUpdate<BookingService>(
     "expire-pending-bookings",
     svc => svc.ExpireOldBookingsAsync(default),
     "*/5 * * * *"); // every 5 minutes
+
+// Run daily at 06:00 UTC — process payouts for bookings 3+ days old
+RecurringJob.AddOrUpdate<PayoutService>(
+    "process-due-payouts",
+    svc => svc.ProcessDuePayoutsAsync(default),
+    "0 6 * * *"); // 06:00 UTC daily (07:00 WAT)
 
 app.Run();
 

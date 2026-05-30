@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Nexum.Modules.Auth.Infrastructure.Persistence;
@@ -13,9 +14,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nexum.Api.Migrations
 {
     [DbContext(typeof(NexumDbContext))]
-    partial class NexumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260530123816_AddPayoutAndBankAccounts")]
+    partial class AddPayoutAndBankAccounts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
