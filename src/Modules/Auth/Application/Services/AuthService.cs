@@ -297,6 +297,16 @@ public sealed class AuthService : IAuthService
         if (existing is not null)
             return ApiResponse<UserDto>.Fail("EMAIL_ALREADY_REGISTERED", "Email already registered.");
 
+        var allowedRoles = new[]
+        {
+            Roles.MedicalOfficer, Roles.SecurityOfficer,
+            Roles.Driver, Roles.Host, Roles.Admin
+        };
+
+        if (!allowedRoles.Contains(request.Role))
+            return ApiResponse<UserDto>.Fail("INVALID_ROLE",
+                $"Role must be one of: {string.Join(", ", allowedRoles)}");
+
         var tempPassword = GenerateTempPassword();
         var user = new ApplicationUser
         {

@@ -107,19 +107,3 @@ public sealed class AuthController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 }
-
-[ApiController]
-[Route("v1/admin")]
-[Authorize(Roles = Roles.Admin)]
-public sealed class AdminController : ControllerBase
-{
-    private readonly IAuthService _auth;
-    public AdminController(IAuthService auth) => _auth = auth;
-
-    [HttpPost("users")]
-    public async Task<IActionResult> CreateOfficer([FromBody] CreateOfficerRequest request, CancellationToken ct)
-    {
-        var result = await _auth.CreateOfficerAsync(request, ct);
-        return result.Success ? Ok(result) : BadRequest(result);
-    }
-}

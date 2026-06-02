@@ -213,6 +213,8 @@ using (var scope = app.Services.CreateScope())
 
     // Seed roles
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
     foreach (var role in Roles.All)
     {
         if (!await roleManager.RoleExistsAsync(role))
@@ -235,7 +237,7 @@ using (var scope = app.Services.CreateScope())
         });
         await db.SaveChangesAsync();
     }
-
+    await DatabaseSeeder.SeedAsync(db, userManager, roleManager);
     // Warm geofence cache
     var geofenceService = scope.ServiceProvider.GetRequiredService<IGeofenceService>();
     await geofenceService.RefreshAsync();
