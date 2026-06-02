@@ -58,6 +58,16 @@ public sealed class NexumDbContext : IdentityDbContext<ApplicationUser>
         builder.HasPostgresExtension("postgis");
         builder.HasPostgresExtension("pgrouting");
         builder.ApplyConfigurationsFromAssembly(typeof(NexumDbContext).Assembly);
+
+        builder.Entity<GeofenceZone>(e =>
+        {
+            e.HasKey(z => z.Id);
+            e.Property(z => z.Boundary)
+             .HasColumnType("geometry(Polygon, 4326)");
+            e.HasIndex(z => z.IsActive)
+             .HasFilter("\"IsActive\" = true"); // partial index — fast active lookup
+        });
+
     }
 }
 
