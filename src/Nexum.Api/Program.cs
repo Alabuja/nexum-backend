@@ -158,6 +158,7 @@ builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
 builder.Services.AddScoped<IGeofenceRepository, GeofenceRepository>();
 builder.Services.AddScoped<INotificationService, FcmNotificationService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IImageUploadService, CloudinaryImageUploadService>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddHttpContextAccessor();
 
