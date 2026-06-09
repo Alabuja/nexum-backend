@@ -25,6 +25,7 @@ public interface IPropertyService
     Task<ApiResponse<bool>> RejectAsync(Guid propertyId, string reason, CancellationToken ct = default);
     Task<ApiResponse<bool>> RecordSupervisionAsync(Guid propertyId, DateTime visitDate, CancellationToken ct = default);
     Task<ApiResponse<PagedResult<PropertyDto>>> AdminListAsync(int page, int pageSize, string? status, CancellationToken ct = default);
+    Task<ApiResponse<PagedResult<PropertyDto>>> GetByHostAsync(string hostId, int page, int pageSize, CancellationToken ct = default);
 }
 
 public sealed class PropertyService : IPropertyService
@@ -269,6 +270,27 @@ public sealed class PropertyService : IPropertyService
         });
     }
 
+    public async Task<ApiResponse<PagedResult<PropertyDto>>> GetByHostAsync(
+    string hostId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = _db.Properties
+            .Where(p => p.HostId == hostId)
+            .OrderByDescending(p => p.CreatedAt);
+
+        var total = await query.CountAsync(ct);
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var dtos = new List<PropertyDto>();
+        foreach (var p in items) dtos.Add(await MapToDtoAsync(p, ct));
+
+        return ApiResponse<PagedResult<PropertyDto>>.Ok(new PagedResult<PropertyDto>
+        {
+            Items = dtos,
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize
+        });
+    }
+
     // ── Helpers ──────────────────────────────────────────────
     private async Task<PropertyDto> MapToDtoAsync(Property p, CancellationToken ct)
     {
@@ -280,7 +302,7 @@ public sealed class PropertyService : IPropertyService
 
     private static RoomTypeDto MapRoomTypeToDto(RoomType r) =>
         new(r.Id, r.PropertyId, r.Name, r.Description, r.Capacity,
-            r.PricePerNight, r.Amenities, r.PhotoUrls, r.IsActive);
+            r.PricePerNight, r.Amenities, r.PhotoUrls, r.IsActive, r.TotalUnits);
 
     private static List<DateOnly> GetDateRange(DateOnly from, DateOnly to)
     {

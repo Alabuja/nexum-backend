@@ -51,7 +51,8 @@ public sealed record RoomTypeDto(
     decimal PricePerNight,
     List<string> Amenities,
     List<string> PhotoUrls,
-    bool IsActive
+    bool IsActive,
+    int TotalUnits
 );
 
 public sealed record AvailabilityDto(

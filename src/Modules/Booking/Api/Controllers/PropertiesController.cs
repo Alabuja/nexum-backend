@@ -93,4 +93,16 @@ public sealed class PropertiesController : ControllerBase
         var result = await _service.SetAvailabilityAsync(hostId, roomTypeId, request, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
+
+    [HttpGet("/v1/host/properties")]
+    [Authorize(Roles = $"{Roles.Host},{Roles.Admin}")]
+    public async Task<IActionResult> MyProperties(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 50,
+    CancellationToken ct = default)
+    {
+        var hostId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _service.GetByHostAsync(hostId, page, pageSize, ct);
+        return Ok(result);
+    }
 }

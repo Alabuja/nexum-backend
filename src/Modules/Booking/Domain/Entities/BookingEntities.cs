@@ -32,7 +32,7 @@ public sealed class RoomType
     public List<string> PhotoUrls { get; set; } = [];
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
+    public int TotalUnits { get; set; } = 1;
     public Property Property { get; set; } = null!;
     public List<RoomAvailability> Availability { get; set; } = [];
 }
