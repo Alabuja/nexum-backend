@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Nexum.Modules.Transit.Application;
+using Nexum.Modules.Transit.Application.Services;
 using System.Security.Claims;
 
 namespace Nexum.Modules.Transit.Api.Controllers;

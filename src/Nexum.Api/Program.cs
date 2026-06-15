@@ -20,6 +20,7 @@ using Nexum.Modules.Emergency.Application;
 using Nexum.Modules.MissingPersons.Application;
 using Nexum.Modules.Parking.Application;
 using Nexum.Modules.Transit.Application;
+using Nexum.Modules.Transit.Application.Services;
 using Nexum.SharedKernel.Geofence;
 using Nexum.SharedKernel.Interfaces;
 using Serilog;
@@ -111,7 +112,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(opts => opts.AddPolicy("NexumPolicy", policy =>
     policy.WithOrigins(
         builder.Configuration["Cors:WebPortalUrl"] ?? "http://localhost:3000",
-        builder.Configuration["Cors:MobileDevUrl"] ?? "http://localhost:19006")
+        builder.Configuration["Cors:TestPortalUrl"] ?? "http://localhost:3000",
+        builder.Configuration["Cors:MobileDevUrl"] ?? "http://localhost:19006",
+        builder.Configuration["Cors:TestMobileDevUrl"] ?? "http://localhost:19006")
     .AllowAnyMethod()
     .AllowAnyHeader()
     .AllowCredentials()));
@@ -139,6 +142,7 @@ builder.Services.AddScoped<IEmergencyService, EmergencyService>();
 builder.Services.AddScoped<IMissingPersonService, MissingPersonService>();
 builder.Services.AddScoped<IParkingService, ParkingService>();
 builder.Services.AddScoped<ITransitService, TransitService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
 
 // ── Booking services ──────────────────────────────────────────
 builder.Services.AddSingleton<BookingLockRegistry>(); // Singleton for SemaphoreSlim registry

@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 
-namespace Nexum.Modules.Transit.Application;
+namespace Nexum.Modules.Transit.Application.Services;
 
 public sealed record CreateShuttleRequestDto(
     [Required] double PickupLatitude,
@@ -193,11 +193,24 @@ public sealed class TransitService : ITransitService
     public async Task<ApiResponse<bool>> UpdateDriverAvailabilityAsync(string driverId,
         UpdateDriverAvailabilityDto dto, CancellationToken ct = default)
     {
-        var vehicle = await _db.ShuttleVehicles.FirstOrDefaultAsync(v => v.DriverId == driverId, ct);
-        if (vehicle is null) return ApiResponse<bool>.Fail("VEHICLE_NOT_FOUND", "No vehicle assigned.");
+        var vehicle = await _db.ShuttleVehicles
+        .FirstOrDefaultAsync(v => v.DriverId == driverId && v.IsActive, ct);
 
-        vehicle.Status = dto.IsAvailable ? ShuttleStatus.Available : ShuttleStatus.OffDuty;
-        vehicle.LastSeenAt = DateTime.UtcNow;
+        if (vehicle is null)
+            return ApiResponse<bool>.Fail("NO_VEHICLE",
+                "No approved vehicle found. Submit your vehicle for admin approval first.");
+
+        // Prevent going on duty if vehicle is not approved
+        if (dto.IsAvailable && vehicle.Status == ShuttleStatus.PendingApproval)
+            return ApiResponse<bool>.Fail("VEHICLE_PENDING",
+                "Your vehicle is awaiting admin approval. You cannot go on duty yet.");
+
+        if (dto.IsAvailable && vehicle.Status == ShuttleStatus.Rejected)
+            return ApiResponse<bool>.Fail("VEHICLE_REJECTED",
+                "Your vehicle registration was rejected. Please contact admin.");
+
+        vehicle.Status = dto.IsAvailable ? ShuttleStatus.Available : ShuttleStatus.Offline;
+        vehicle.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResponse<bool>.Ok(true);
     }
@@ -234,7 +247,7 @@ public sealed class TransitService : ITransitService
     public async Task<ApiResponse<List<ShuttleVehicleDto>>> GetLiveVehiclesAsync(CancellationToken ct = default)
     {
         var vehicles = await _db.ShuttleVehicles
-            .Where(v => v.Status != ShuttleStatus.OffDuty)
+            .Where(v => v.Status != ShuttleStatus.Offline)
             .ToListAsync(ct);
         return ApiResponse<List<ShuttleVehicleDto>>.Ok(vehicles.Select(v =>
             new ShuttleVehicleDto(v.Id, v.DriverId, v.Registration, v.Capacity,

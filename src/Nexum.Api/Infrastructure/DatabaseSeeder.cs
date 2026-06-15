@@ -5,6 +5,7 @@ using Nexum.Modules.Auth.Domain.Enums;
 using Nexum.Modules.Auth.Infrastructure.Persistence;
 using Nexum.Modules.Booking.Domain.Entities;
 using Nexum.Modules.Booking.Domain.Enums;
+using Nexum.Modules.Transit.Domain.Entities;
 
 namespace Nexum.Api.Infrastructure;
 
@@ -146,6 +147,24 @@ public static class DatabaseSeeder
         if (hostUserId is not null && !db.Properties.Any())
         {
             await SeedPropertiesAsync(db, hostUserId);
+        }
+
+        // ── 5. Seed shuttle vehicle for driver ───────────────
+        var driverUser = await userManager.FindByEmailAsync("driver@nexum.ng");
+        if (driverUser is not null && !db.ShuttleVehicles.Any(v => v.DriverId == driverUser.Id))
+        {
+            db.ShuttleVehicles.Add(new()
+            {
+                Id = Guid.NewGuid(),
+                DriverId = driverUser.Id,
+                Registration = "LAG-001-NX",
+                Capacity = 12,
+                Status = ShuttleStatus.Available,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
         }
     }
 

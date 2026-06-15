@@ -34,10 +34,15 @@ public sealed class ShuttleVehicle
     public string DriverId { get; set; } = string.Empty;
     public string Registration { get; set; } = string.Empty;
     public int Capacity { get; set; }
-    public ShuttleStatus Status { get; set; } = ShuttleStatus.OffDuty;
+    public ShuttleStatus Status { get; set; } = ShuttleStatus.PendingApproval;
     public Geometry? CurrentLocation { get; set; }
     public DateTime? LastSeenAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsActive { get; set; } = true;
+    public string VehicleType { get; set; } = "Bus";
+    // Status values: PendingApproval, Available, EnRoute, Offline, Rejected
+    public string? RejectionReason { get; set; }
 }
 
 public sealed class ShuttleRequest
@@ -65,5 +70,35 @@ public sealed class CongestionSnapshot
 }
 
 public enum NodeType { Gate, Junction, Landmark, ShuttleStop, ParkingArea }
-public enum ShuttleStatus { Available, EnRoute, Full, OffDuty }
+public enum ShuttleStatus
+{
+    PendingApproval,  // Driver submitted vehicle, awaiting admin review
+    Available,        // Vehicle approved + driver on duty, ready for requests
+    EnRoute,          // Driver has accepted a request and is on the way
+    Full,             // Vehicle has reached max passenger capacity
+    Offline,          // Driver toggled off duty
+    Rejected,         // Admin rejected the vehicle registration
+}
 public enum ShuttleRequestStatus { Pending, Assigned, PickedUp, Completed, Cancelled }
+
+// WHERE EACH IS SET:
+//
+// PendingApproval  → VehicleService.SubmitVehicleAsync (driver submits vehicle)
+//
+// Available        → VehicleService.ApproveAsync (admin approves)
+//                  → VehicleService.AdminCreateAsync (admin creates directly)
+//                  → TransitService.UpdateDriverAvailabilityAsync (driver goes on duty)
+//                  → After ride is completed (driver becomes available again)
+//
+// EnRoute          → TransitService.AcceptShuttleRequestAsync (driver accepts pickup)
+//                    After a request is assigned, the vehicle is no longer available
+//                    for other requests
+//
+// Full             → TransitService when the vehicle reaches Capacity passengers
+//                    e.g. a 12-seat bus that has 12 passengers aboard
+//                    Not shown in dispatch queries — won't receive new requests
+//
+// Offline          → TransitService.UpdateDriverAvailabilityAsync (driver goes off duty)
+//
+// Rejected         → VehicleService.RejectAsync (admin rejects vehicle)
+
