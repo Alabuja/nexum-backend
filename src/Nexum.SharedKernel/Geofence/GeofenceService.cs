@@ -46,6 +46,28 @@ public sealed class GeofenceService : IGeofenceService
         }
     }
 
+    // Add this implementation to your existing GeofenceService class.
+    // It assumes the service already has a DbContext injected (commonly named
+    // `_dbContext` or `_context` - rename to match your existing field).
+
+    public async Task PingDatabaseAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IGeofenceRepository>();
+            await repository.PingAsync(ct);
+            _logger.LogInformation("Database keep-warm ping succeeded");
+        }
+        catch (Exception ex)
+        {
+            // Don't let a failed keep-warm ping crash the Hangfire job or
+            // bubble up - just log it. The next scheduled run will retry.
+            _logger.LogWarning(ex, "Database keep-warm ping failed");
+        }
+    }
+
+
     public bool IsInsideCamp(double latitude, double longitude)
     {
         if (_cachedPolygon is null) return false;
@@ -57,4 +79,5 @@ public sealed class GeofenceService : IGeofenceService
 public interface IGeofenceRepository
 {
     Task<Geometry> GetActivePolygonAsync(CancellationToken ct = default);
+    Task PingAsync(CancellationToken ct = default);
 }

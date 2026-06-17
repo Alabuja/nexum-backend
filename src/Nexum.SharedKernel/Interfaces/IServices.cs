@@ -4,6 +4,7 @@ namespace Nexum.SharedKernel.Interfaces;
 
 public interface IGeofenceService
 {
+    Task PingDatabaseAsync(CancellationToken ct = default);
     Geometry GetActivePolygon();
     Task RefreshAsync(CancellationToken ct = default);
     bool IsInsideCamp(double latitude, double longitude);

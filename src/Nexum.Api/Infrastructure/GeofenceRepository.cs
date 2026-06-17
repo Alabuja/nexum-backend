@@ -18,4 +18,9 @@ public sealed class GeofenceRepository : IGeofenceRepository
             ?? throw new InvalidOperationException("No active geofence zone found in database.");
         return zone.Boundary;
     }
+
+    public async Task PingAsync(CancellationToken ct = default)
+    {
+        await _db.Database.ExecuteSqlRawAsync("SELECT 1", ct);
+    }
 }
