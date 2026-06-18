@@ -127,17 +127,31 @@ public static class DatabaseSeeder
         }
 
         // ── 3. Geofence (default Redemption City boundary) ───
-        if (!db.GeofenceZones.Any())
+        if (!db.GeofenceZones.Any(x => x.IsActive))
         {
             // Approximate polygon for Redemption City, Km 46 Lagos-Ibadan Expressway
-            var wkt = "POLYGON((3.3750 6.8300, 3.4050 6.8300, 3.4050 6.8500, 3.3750 6.8500, 3.3750 6.8300))";
+            //var wkt = "POLYGON((3.3750 6.8300, 3.4050 6.8300, 3.4050 6.8500, 3.3750 6.8500, 3.3750 6.8300))";
+            //var reader = new NetTopologySuite.IO.WKTReader();
+            //db.GeofenceZones.Add(new()
+            //{
+            //    Name        = "Redemption City — Default Boundary",
+            //    Description = "Default camp boundary. Update via admin portal with precise coordinates.",
+            //    Boundary    = reader.Read(wkt),
+            //    IsActive    = true,
+            //    ActivatedAt = DateTime.UtcNow,
+            //});
+
+
+            // Approximate bounding box around Lokoja town center (Kogi State)
+            // Centered on 7.8024°N, 6.7430°E — confirmed via OpenStreetMap Nominatim
+            var wkt = "POLYGON((6.7230 7.7850, 6.7630 7.7850, 6.7630 8.0150, 6.7230 8.0150, 6.7230 7.7850))";
             var reader = new NetTopologySuite.IO.WKTReader();
             db.GeofenceZones.Add(new()
             {
-                Name        = "Redemption City — Default Boundary",
-                Description = "Default camp boundary. Update via admin portal with precise coordinates.",
-                Boundary    = reader.Read(wkt),
-                IsActive    = true,
+                Name = "Lokoja — Default Boundary",
+                Description = "Default boundary for Lokoja town area, Kogi State. Update via admin portal with precise coordinates.",
+                Boundary = reader.Read(wkt),
+                IsActive = true,
                 ActivatedAt = DateTime.UtcNow,
             });
             await db.SaveChangesAsync();

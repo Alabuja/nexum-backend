@@ -89,7 +89,7 @@ public sealed class OfficerLocation
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string UserId { get; set; } = string.Empty;
-    public Geometry Location { get; set; } = null!;
+    public Geometry? Location { get; set; }
     public bool IsAvailable { get; set; } = true;
     public DateTime LastSeenAt { get; set; } = DateTime.UtcNow;
 }

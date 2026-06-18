@@ -70,4 +70,13 @@ public sealed class EmergencyController : ControllerBase
         var result = await _service.UpdateLocationAsync(officerId, request, ct);
         return Ok(result);
     }
+
+    [HttpGet("officers/availability")]
+    [Authorize(Roles = "medical_officer,security_officer,driver")]
+    public async Task<IActionResult> GetMyAvailability(CancellationToken ct)
+    {
+        var officerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _service.GetAvailabilityAsync(officerId, ct);
+        return Ok(result);
+    }
 }

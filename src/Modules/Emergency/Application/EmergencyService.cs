@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Nexum.Modules.Auth.Infrastructure.Persistence;
+using Nexum.Modules.Booking.Application.DTOs;
 using Nexum.Modules.Emergency.Domain.Entities;
 using Nexum.SharedKernel.Interfaces;
 using Nexum.SharedKernel.Models;
@@ -27,6 +28,7 @@ public sealed record IncidentDto(
 public sealed record UpdateAvailabilityRequest([Required] bool IsAvailable);
 public sealed record UpdateLocationRequest([Required] double Latitude, [Required] double Longitude);
 public sealed record UpdateIncidentStatusRequest([Required] string Status, string? Note);
+public sealed record AvailabilityDto(bool IsAvailable, DateTime? LastSeenAt);
 
 // ── Service ───────────────────────────────────────────────────
 public interface IEmergencyService
@@ -37,6 +39,7 @@ public interface IEmergencyService
     Task<ApiResponse<bool>> UpdateStatusAsync(Guid incidentId, string officerId, UpdateIncidentStatusRequest request, CancellationToken ct = default);
     Task<ApiResponse<bool>> UpdateAvailabilityAsync(string officerId, UpdateAvailabilityRequest request, CancellationToken ct = default);
     Task<ApiResponse<bool>> UpdateLocationAsync(string officerId, UpdateLocationRequest request, CancellationToken ct = default);
+    Task<ApiResponse<AvailabilityDto>> GetAvailabilityAsync(string officerId, CancellationToken ct = default);
 }
 
 public sealed class EmergencyService : IEmergencyService
@@ -85,7 +88,7 @@ public sealed class EmergencyService : IEmergencyService
         var cutoff = DateTime.UtcNow.AddMinutes(-2);
         // Find all available officers of matching role with recent location ping
         var officerLocations = await _db.OfficerLocations
-            .Where(ol => ol.IsAvailable && ol.LastSeenAt >= cutoff)
+            .Where(ol => ol.IsAvailable && ol.LastSeenAt >= cutoff && ol.Location != null)
             .ToListAsync(ct);
 
         if (!officerLocations.Any())
@@ -203,13 +206,19 @@ public sealed class EmergencyService : IEmergencyService
         UpdateAvailabilityRequest request, CancellationToken ct = default)
     {
         var location = await _db.OfficerLocations.FirstOrDefaultAsync(ol => ol.UserId == officerId, ct);
+
+        _logger.LogWarning("Officer's Id {OfficerId}", officerId);
+        if (location == null)
         if (location is null)
         {
+            _logger.LogWarning("Officer's Id {OfficerId} not found in locations", officerId);
+
             location = new OfficerLocation { UserId = officerId };
             _db.OfficerLocations.Add(location);
         }
         location.IsAvailable = request.IsAvailable;
         location.LastSeenAt = DateTime.UtcNow;
+        _logger.LogWarning("Officer's Id {OfficerId} availability updated to {IsAvailable}", officerId, request.IsAvailable);
         await _db.SaveChangesAsync(ct);
         return ApiResponse<bool>.Ok(true);
     }
@@ -227,6 +236,20 @@ public sealed class EmergencyService : IEmergencyService
         location.LastSeenAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResponse<bool>.Ok(true);
+    }
+
+    public async Task<ApiResponse<AvailabilityDto>> GetAvailabilityAsync(string officerId,
+    CancellationToken ct = default)
+    {
+        var location = await _db.OfficerLocations.FirstOrDefaultAsync(ol => ol.UserId == officerId, ct);
+
+        // No row yet means the officer has never toggled availability -
+        // default to false rather than throwing, since this is a perfectly
+        // valid state for a brand new officer account.
+        if (location is null)
+            return ApiResponse<AvailabilityDto>.Ok(new AvailabilityDto(false, null));
+
+        return ApiResponse<AvailabilityDto>.Ok(new AvailabilityDto(location.IsAvailable, location.LastSeenAt));
     }
 
     private async Task<IncidentDto> BuildDtoAsync(SosIncident incident, CancellationToken ct)

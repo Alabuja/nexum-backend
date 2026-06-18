@@ -82,7 +82,8 @@ public sealed class AuthService : IAuthService
         if (!result.Succeeded)
         {
             var errors = result.Errors.Select(e => new { e.Code, e.Description });
-            return ApiResponse<AuthResponse>.Fail("VALIDATION_ERROR", "Registration failed.", errors);
+            var errorDescriptions = string.Join("; ", result.Errors.Select(e => e.Description));
+            return ApiResponse<AuthResponse>.Fail("VALIDATION_ERROR", $"Registration failed. {errorDescriptions}", errors);
         }
 
         await _userManager.AddToRoleAsync(user, Roles.Worshipper);
