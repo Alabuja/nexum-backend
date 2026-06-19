@@ -148,6 +148,50 @@ namespace Nexum.UnitTests.Parking
                 It.IsAny<CancellationToken>()), Times.Once);
         }
 
+        [Fact]
+        public async Task CreateBlockingAlert_WithLicencePlate_ShouldMatchPinnedVehicle()
+        {
+            // Arrange
+            var blockingOwner = new Nexum.Modules.Auth.Domain.Entities.ApplicationUser
+            {
+                Id = "owner2",
+                Email = "owner2@test.com",
+                FullName = "Owner Two",
+                FcmToken = "owner2-fcm-token"
+            };
+            _db.Users.Add(blockingOwner);
+
+            _db.ParkingPins.Add(new ParkingPin
+            {
+                UserId = "owner2",
+                PinLocation = new Point(3.5000, 6.9000) { SRID = 4326 },
+                IsActive = true,
+                LicencePlate = "JHS-234-BG"
+            });
+            await _db.SaveChangesAsync();
+
+            _notificationsMock.Setup(n => n.SendPushAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            var request = new CreateBlockingAlertRequest(
+                6.8389, 3.3901, "Blocking my exit", "jhs 234 bg", "Black Tesla");
+
+            // Act
+            var result = await _sut.CreateBlockingAlertAsync("reporter1", request);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data!.BlockerPinId.Should().NotBeNull();
+            _notificationsMock.Verify(n => n.SendPushAsync(
+                "owner2-fcm-token",
+                It.Is<string>(s => s.Contains("blocking")),
+                It.IsAny<string>(),
+                It.IsAny<Dictionary<string, string>>(),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
         public void Dispose() => _db.Dispose();
     }
 }

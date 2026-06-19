@@ -28,7 +28,9 @@ public sealed record PinDto(
 public sealed record CreateBlockingAlertRequest(
 	[Required] double Latitude,
 	[Required] double Longitude,
-	string? Note
+	string? Note,
+	string? LicencePlate = null,
+	string? VehicleDescription = null
 );
 
 public sealed record BlockingAlertDto(
@@ -116,12 +118,16 @@ public sealed class ParkingService : IParkingService
 		var reporterPin = await _db.ParkingPins
 			.FirstOrDefaultAsync(p => p.UserId == userId && p.IsActive, ct);
 
-		// Find nearby pins excluding reporter's own (within 15m)
-		var nearbyPins = await _db.ParkingPins
+		var candidatePins = await _db.ParkingPins
 			.Where(p => p.IsActive && p.UserId != userId)
 			.ToListAsync(ct);
 
-		var blockerPin = nearbyPins
+		var requestedPlate = NormalizePlate(request.LicencePlate);
+		var blockerPin = requestedPlate is not null
+			? candidatePins.FirstOrDefault(p => NormalizePlate(p.LicencePlate) == requestedPlate)
+			: null;
+
+		blockerPin ??= candidatePins
 			.Where(p => p.PinLocation.Distance(reporterLocation) * 111139 <= ProximityMetres)
 			.OrderBy(p => p.PinLocation.Distance(reporterLocation))
 			.FirstOrDefault();
@@ -132,7 +138,7 @@ public sealed class ParkingService : IParkingService
 			BlockerPinId = blockerPin?.Id,
 			ReporterPinId = reporterPin?.Id,
 			ReporterLocation = reporterLocation,
-			Note = request.Note,
+			Note = BuildBlockingNote(request),
 			Status = blockerPin is null ? BlockingStatus.Escalated : BlockingStatus.Pending
 		};
 		_db.BlockingAlerts.Add(alert);
@@ -172,4 +178,23 @@ public sealed class ParkingService : IParkingService
 	private static PinDto MapToDto(ParkingPin p) =>
 		new(p.Id, p.UserId, p.PinLocation.Coordinate.Y, p.PinLocation.Coordinate.X,
 			p.AreaLabel, p.VehicleDescription, p.LicencePlate, p.PhotoUrl, p.IsActive, p.CreatedAt);
+
+	private static string? NormalizePlate(string? plate)
+	{
+		if (string.IsNullOrWhiteSpace(plate)) return null;
+		var chars = plate.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray();
+		return chars.Length == 0 ? null : new string(chars);
+	}
+
+	private static string? BuildBlockingNote(CreateBlockingAlertRequest request)
+	{
+		var parts = new[]
+		{
+			string.IsNullOrWhiteSpace(request.LicencePlate) ? null : $"Plate: {request.LicencePlate.Trim().ToUpperInvariant()}",
+			string.IsNullOrWhiteSpace(request.VehicleDescription) ? null : $"Vehicle: {request.VehicleDescription.Trim()}",
+			string.IsNullOrWhiteSpace(request.Note) ? null : $"Note: {request.Note.Trim()}",
+		}.Where(p => p is not null);
+
+		return string.Join(" | ", parts);
+	}
 }

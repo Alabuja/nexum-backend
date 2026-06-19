@@ -70,6 +70,11 @@ public sealed class EscalationJobs
 
             _logger.LogWarning("Blocking alert {AlertId} escalated to wardens", alert.Id);
 
+            var blockerPin = alert.BlockerPinId is null
+                ? null
+                : await _db.ParkingPins.FindAsync([alert.BlockerPinId.Value]);
+            var vehicleDetails = BuildBlockingVehicleDetails(blockerPin, alert.Note);
+
             var wardenTokens = await _db.Users
                 .Where(u => u.FcmToken != null)
                 .Join(_db.UserRoles, u => u.Id, ur => ur.UserId, (u, ur) => new { u, ur })
@@ -82,11 +87,32 @@ public sealed class EscalationJobs
             {
                 await _notifications.SendPushToManyAsync(wardenTokens,
                     "🚗 Blocking Vehicle — Escalated",
-                    "Vehicle owner unresponsive. Manual intervention needed.",
-                    new Dictionary<string, string> { ["blockingAlertId"] = alert.Id.ToString() });
+                    $"Vehicle owner unresponsive. {vehicleDetails}",
+                    new Dictionary<string, string>
+                    {
+                        ["blockingAlertId"] = alert.Id.ToString(),
+                        ["licencePlate"] = blockerPin?.LicencePlate ?? "",
+                        ["vehicleDescription"] = blockerPin?.VehicleDescription ?? "",
+                        ["note"] = alert.Note ?? ""
+                    });
             }
         }
         await _db.SaveChangesAsync();
+    }
+
+    private static string BuildBlockingVehicleDetails(ParkingPin? blockerPin, string? note)
+    {
+        var details = new[]
+        {
+            string.IsNullOrWhiteSpace(blockerPin?.LicencePlate) ? null : $"Plate: {blockerPin.LicencePlate}",
+            string.IsNullOrWhiteSpace(blockerPin?.VehicleDescription) ? null : blockerPin.VehicleDescription,
+            string.IsNullOrWhiteSpace(note) ? null : note
+        }.Where(x => x is not null);
+
+        var message = string.Join(" | ", details);
+        return string.IsNullOrWhiteSpace(message)
+            ? "Manual intervention needed."
+            : $"{message}. Manual intervention needed.";
     }
 
     // Run every 5 minutes: cleanup stale officer locations
