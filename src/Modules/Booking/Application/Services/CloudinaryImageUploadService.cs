@@ -18,6 +18,11 @@ public interface IImageUploadService
         IEnumerable<IFormFile> files,
         CancellationToken ct = default);
 
+    Task<ApiResponse<string>> UploadImageAsync(
+        string folder,
+        IFormFile file,
+        CancellationToken ct = default);
+
     Task<ApiResponse<bool>> DeleteImageAsync(string publicId, CancellationToken ct = default);
 }
 
@@ -129,6 +134,46 @@ public sealed class CloudinaryImageUploadService : IImageUploadService
         return ApiResponse<List<string>>.Ok(urls);
     }
 
+    public async Task<ApiResponse<string>> UploadImageAsync(
+        string folder,
+        IFormFile file,
+        CancellationToken ct = default)
+    {
+        var validation = ValidateImage(file);
+        if (validation is not null) return validation;
+
+        await using var stream = file.OpenReadStream();
+        var uploadParams = new ImageUploadParams
+        {
+            File = new FileDescription(file.FileName, stream),
+            Folder = folder,
+            PublicId = $"{folder}/photo_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+            Transformation = new Transformation()
+                .Width(1200).Height(1200).Crop("limit")
+                .FetchFormat("webp").Quality("auto"),
+            Overwrite = false,
+        };
+
+        try
+        {
+            var result = await _cloudinary.UploadAsync(uploadParams, ct);
+            if (result.Error is not null)
+            {
+                _logger.LogError("Cloudinary upload failed in {Folder}: {Error}",
+                    folder, result.Error.Message);
+                return ApiResponse<string>.Fail("UPLOAD_FAILED", result.Error.Message);
+            }
+
+            return ApiResponse<string>.Ok(result.SecureUrl.ToString());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cloudinary exception in {Folder}", folder);
+            return ApiResponse<string>.Fail("UPLOAD_EXCEPTION",
+                "Image upload service unavailable. Please try again.");
+        }
+    }
+
     public async Task<ApiResponse<bool>> DeleteImageAsync(string publicId, CancellationToken ct = default)
     {
         try
@@ -143,5 +188,21 @@ public sealed class CloudinaryImageUploadService : IImageUploadService
             _logger.LogError(ex, "Failed to delete Cloudinary image {PublicId}", publicId);
             return ApiResponse<bool>.Fail("DELETE_EXCEPTION", "Delete service unavailable.");
         }
+    }
+
+    private static ApiResponse<string>? ValidateImage(IFormFile file)
+    {
+        if (file.Length == 0)
+            return ApiResponse<string>.Fail("EMPTY_FILE", $"File '{file.FileName}' is empty.");
+
+        if (file.Length > MaxFileSizeBytes)
+            return ApiResponse<string>.Fail("FILE_TOO_LARGE",
+                $"'{file.FileName}' exceeds the 5 MB limit.");
+
+        if (!AllowedTypes.Contains(file.ContentType.ToLower()))
+            return ApiResponse<string>.Fail("INVALID_TYPE",
+                $"'{file.FileName}' must be JPEG, PNG, or WebP.");
+
+        return null;
     }
 }

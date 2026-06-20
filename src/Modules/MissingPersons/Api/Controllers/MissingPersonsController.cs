@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Nexum.Modules.Booking.Application.Services;
 using Nexum.Modules.MissingPersons.Application;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
 namespace Nexum.Modules.MissingPersons.Api.Controllers;
@@ -11,13 +13,39 @@ namespace Nexum.Modules.MissingPersons.Api.Controllers;
 public sealed class MissingPersonsController : ControllerBase
 {
     private readonly IMissingPersonService _service;
-    public MissingPersonsController(IMissingPersonService service) => _service = service;
+    private readonly IImageUploadService _uploadService;
+
+    public MissingPersonsController(IMissingPersonService service, IImageUploadService uploadService)
+    {
+        _service = service;
+        _uploadService = uploadService;
+    }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateAlertRequest request, CancellationToken ct)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Create([FromForm] CreateMissingPersonAlertForm request, CancellationToken ct)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var result = await _service.CreateAlertAsync(userId, request, ct);
+        string? photoUrl = null;
+
+        if (request.Photo is not null)
+        {
+            var upload = await _uploadService.UploadImageAsync(
+                $"nexum/missing-persons/{Guid.NewGuid()}", request.Photo, ct);
+            if (!upload.Success) return BadRequest(upload);
+            photoUrl = upload.Data;
+        }
+
+        var createRequest = new CreateAlertRequest(
+            request.FullName,
+            request.Age,
+            request.Description,
+            photoUrl,
+            request.LastSeenLatitude,
+            request.LastSeenLongitude,
+            request.LastSeenAreaText);
+
+        var result = await _service.CreateAlertAsync(userId, createRequest, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -61,4 +89,15 @@ public sealed class MissingPersonsController : ControllerBase
         var result = await _service.GetSightingsAsync(alertId, ct);
         return Ok(result);
     }
+}
+
+public sealed class CreateMissingPersonAlertForm
+{
+    [Required] [FromForm] public string FullName { get; set; } = string.Empty;
+    [FromForm] public int? Age { get; set; }
+    [Required] [FromForm] public string Description { get; set; } = string.Empty;
+    [FromForm] public double? LastSeenLatitude { get; set; }
+    [FromForm] public double? LastSeenLongitude { get; set; }
+    [FromForm] public string? LastSeenAreaText { get; set; }
+    [FromForm] public IFormFile? Photo { get; set; }
 }
