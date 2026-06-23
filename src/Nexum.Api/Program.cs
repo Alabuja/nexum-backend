@@ -46,6 +46,11 @@ builder.Services.AddDbContext<NexumDbContext>(opts =>
         npgsql =>
         {
             npgsql.UseNetTopologySuite();
+            npgsql.CommandTimeout(60); // bumped from default 30s
+            npgsql.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
             npgsql.MigrationsAssembly("Nexum.Api");
         }));
 
@@ -109,15 +114,19 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // ── CORS ──────────────────────────────────────────────────────
+//builder.Services.AddCors(opts => opts.AddPolicy("NexumPolicy", policy =>
+//    policy.WithOrigins(
+//        builder.Configuration["Cors:WebPortalUrl"],
+//        builder.Configuration["Cors:TestPortalUrl"],
+//        builder.Configuration["Cors:MobileDevUrl"],
+//        builder.Configuration["Cors:TestMobileDevUrl"])
+//    .AllowAnyMethod()
+//    .AllowAnyHeader()));
+
 builder.Services.AddCors(opts => opts.AddPolicy("NexumPolicy", policy =>
-    policy.WithOrigins(
-        builder.Configuration["Cors:WebPortalUrl"] ?? "http://localhost:3000",
-        builder.Configuration["Cors:TestPortalUrl"] ?? "http://localhost:3000",
-        builder.Configuration["Cors:MobileDevUrl"] ?? "http://localhost:19006",
-        builder.Configuration["Cors:TestMobileDevUrl"] ?? "http://localhost:19006")
-    .AllowAnyMethod()
-    .AllowAnyHeader()
-    .AllowCredentials()));
+    policy.AllowAnyOrigin()
+          .AllowAnyMethod()
+          .AllowAnyHeader()));
 
 // ── SignalR ───────────────────────────────────────────────────
 builder.Services.AddSignalR();
@@ -227,21 +236,21 @@ using (var scope = app.Services.CreateScope())
     }
 
     // Seed geofence — default Redemption City boundary
-    if (!db.GeofenceZones.Any())
-    {
-        // Approximate Redemption City boundary polygon (WGS84)
-        var wkt = "POLYGON((3.3750 6.8300, 3.4050 6.8300, 3.4050 6.8500, 3.3750 6.8500, 3.3750 6.8300))";
-        var reader = new NetTopologySuite.IO.WKTReader();
-        db.GeofenceZones.Add(new()
-        {
-            Name = "Redemption City — Default Boundary",
-            Description = "Default camp boundary — update via admin portal",
-            Boundary = reader.Read(wkt),
-            IsActive = true,
-            ActivatedAt = DateTime.UtcNow
-        });
-        await db.SaveChangesAsync();
-    }
+    //if (!db.GeofenceZones.Any())
+    //{
+    //    // Approximate Redemption City boundary polygon (WGS84)
+    //    var wkt = "POLYGON((3.3750 6.8300, 3.4050 6.8300, 3.4050 6.8500, 3.3750 6.8500, 3.3750 6.8300))";
+    //    var reader = new NetTopologySuite.IO.WKTReader();
+    //    db.GeofenceZones.Add(new()
+    //    {
+    //        Name = "Redemption City — Default Boundary",
+    //        Description = "Default camp boundary — update via admin portal",
+    //        Boundary = reader.Read(wkt),
+    //        IsActive = true,
+    //        ActivatedAt = DateTime.UtcNow
+    //    });
+    //    await db.SaveChangesAsync();
+    //}
     await DatabaseSeeder.SeedAsync(db, userManager, roleManager);
     // Warm geofence cache
     var geofenceService = scope.ServiceProvider.GetRequiredService<IGeofenceService>();
@@ -294,6 +303,11 @@ RecurringJob.AddOrUpdate<PayoutService>(
     "process-due-payouts",
     svc => svc.ProcessDuePayoutsAsync(default),
     "0 6 * * *"); // 06:00 UTC daily (07:00 WAT)
+
+RecurringJob.AddOrUpdate<IGeofenceService>(
+    "db-keep-warm",
+    service => service.PingDatabaseAsync(CancellationToken.None),
+    "*/5 * * * *");
 
 app.Run();
 
