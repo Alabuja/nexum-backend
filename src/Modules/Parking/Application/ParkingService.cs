@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NetTopologySuite.Geometries;
 using Nexum.Modules.Auth.Infrastructure.Persistence;
 using Nexum.Modules.Parking.Domain.Entities;
+using Nexum.Modules.Sms.Application;
 using Nexum.SharedKernel.Interfaces;
 using Nexum.SharedKernel.Models;
 using System.ComponentModel.DataAnnotations;
@@ -50,15 +51,17 @@ public sealed class ParkingService : IParkingService
 {
 	private readonly NexumDbContext _db;
 	private readonly INotificationService _notifications;
+	private readonly ISmsService _sms;
 	private readonly ILogger<ParkingService> _logger;
 
 	// 15 metres proximity for blocker matching
 	private const double ProximityMetres = 15.0;
 
-	public ParkingService(NexumDbContext db, INotificationService notifications, ILogger<ParkingService> logger)
+	public ParkingService(NexumDbContext db, INotificationService notifications, ISmsService sms, ILogger<ParkingService> logger)
 	{
 		_db = db;
 		_notifications = notifications;
+		_sms = sms;
 		_logger = logger;
 	}
 
@@ -163,6 +166,14 @@ public sealed class ParkingService : IParkingService
 						["type"] = "blocking_vehicle"
 					}, ct);
 			}
+
+			if (!string.IsNullOrWhiteSpace(owner?.PhoneNumber))
+			{
+				await _sms.SendNexumPaidAsync(userId, new SendSmsRequest(
+					owner.PhoneNumber,
+					$"Your vehicle{FormatPlate(blockerPin.LicencePlate)} is blocking another exit. Please move it immediately.",
+					alert.Id.ToString()), ct);
+			}
 		}
 		else
 		{
@@ -197,4 +208,7 @@ public sealed class ParkingService : IParkingService
 
 		return string.Join(" | ", parts);
 	}
+
+	private static string FormatPlate(string? plate) =>
+		string.IsNullOrWhiteSpace(plate) ? "" : $" ({plate.Trim().ToUpperInvariant()})";
 }

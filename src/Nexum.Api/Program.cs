@@ -19,6 +19,7 @@ using Nexum.Modules.Booking.Application.Services;
 using Nexum.Modules.Emergency.Application;
 using Nexum.Modules.MissingPersons.Application;
 using Nexum.Modules.Parking.Application;
+using Nexum.Modules.Sms.Application;
 using Nexum.Modules.Transit.Application;
 using Nexum.Modules.Transit.Application.Services;
 using Nexum.SharedKernel.Geofence;
@@ -156,6 +157,10 @@ builder.Services.AddScoped<IHostBankAccountService, HostBankAccountService>();
 builder.Services.AddScoped<IPayoutService, PayoutService>();
 builder.Services.AddScoped<PayoutService>(); // concrete for Hangfire
 builder.Services.AddHttpClient<IPaystackTransferService, PaystackTransferService>();
+
+// ── SMS services ──────────────────────────────────────────────
+builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddHttpClient<ITermiiSmsService, TermiiSmsService>();
 
 // ── Infrastructure services ───────────────────────────────────
 builder.Services.AddSingleton<IGeofenceService, GeofenceService>();
