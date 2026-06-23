@@ -14,11 +14,20 @@ public interface IPaystackService
         string callbackUrl, CancellationToken ct = default);
 
     bool VerifyWebhookSignature(string payload, string signature);
+    Task<PaystackVerifyResult> VerifyTransactionAsync(string reference, CancellationToken ct = default);
 }
 
 public sealed record PaystackInitializeResult(
     bool Success,
     string? AuthorizationUrl,
+    string? Reference,
+    string? Message
+);
+
+public sealed record PaystackVerifyResult(
+    bool Success,
+    string? Status,
+    decimal AmountNaira,
     string? Reference,
     string? Message
 );
@@ -99,5 +108,49 @@ public sealed class PaystackService : IPaystackService
         var hash = HMACSHA512.HashData(keyBytes, payloadBytes);
         var computed = Convert.ToHexString(hash).ToLower();
         return computed == signature.ToLower();
+    }
+
+    public async Task<PaystackVerifyResult> VerifyTransactionAsync(
+        string reference, CancellationToken ct = default)
+    {
+        var secretKey = _config["Paystack:SecretKey"]
+            ?? throw new InvalidOperationException("Paystack:SecretKey not configured");
+
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"https://api.paystack.co/transaction/verify/{Uri.EscapeDataString(reference)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+
+        try
+        {
+            var response = await _http.SendAsync(request, ct);
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("status", out var statusProp) || !statusProp.GetBoolean())
+            {
+                var message = root.TryGetProperty("message", out var msg)
+                    ? msg.GetString()
+                    : "Paystack verification failed";
+                return new PaystackVerifyResult(false, null, 0, reference, message);
+            }
+
+            var data = root.GetProperty("data");
+            var status = data.GetProperty("status").GetString();
+            var amountKobo = data.GetProperty("amount").GetDecimal();
+            var verifiedReference = data.GetProperty("reference").GetString();
+
+            return new PaystackVerifyResult(
+                status == "success",
+                status,
+                amountKobo / 100m,
+                verifiedReference,
+                status == "success" ? null : $"Paystack status is {status}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Paystack verification exception for {Reference}", reference);
+            return new PaystackVerifyResult(false, null, 0, reference, ex.Message);
+        }
     }
 }

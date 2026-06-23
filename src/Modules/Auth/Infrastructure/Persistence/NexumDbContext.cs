@@ -7,6 +7,7 @@ using Nexum.Modules.Booking.Domain.Entities;
 using Nexum.Modules.Emergency.Domain.Entities;
 using Nexum.Modules.MissingPersons.Domain.Entities;
 using Nexum.Modules.Parking.Domain.Entities;
+using Nexum.Modules.Sms.Domain.Entities;
 using Nexum.Modules.Transit.Domain.Entities;
 using Nexum.SharedKernel.Geofence;
 
@@ -52,6 +53,12 @@ public sealed class NexumDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<HostBankAccount> HostBankAccounts => Set<HostBankAccount>();
     public DbSet<BookingTransfer> BookingTransfers => Set<BookingTransfer>();
 
+    // SMS
+    public DbSet<SmsWallet> SmsWallets => Set<SmsWallet>();
+    public DbSet<SmsTransaction> SmsTransactions => Set<SmsTransaction>();
+    public DbSet<SmsMessage> SmsMessages => Set<SmsMessage>();
+    public DbSet<SmsTopup> SmsTopups => Set<SmsTopup>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -66,6 +73,32 @@ public sealed class NexumDbContext : IdentityDbContext<ApplicationUser>
              .HasColumnType("geometry(Polygon, 4326)");
             e.HasIndex(z => z.IsActive)
              .HasFilter("\"IsActive\" = true"); // partial index — fast active lookup
+        });
+
+        builder.Entity<SmsWallet>(e =>
+        {
+            e.HasKey(w => w.Id);
+            e.HasIndex(w => w.UserId).IsUnique();
+        });
+
+        builder.Entity<SmsTransaction>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.HasIndex(t => new { t.UserId, t.CreatedAt });
+        });
+
+        builder.Entity<SmsMessage>(e =>
+        {
+            e.HasKey(m => m.Id);
+            e.HasIndex(m => new { m.UserId, m.CreatedAt });
+        });
+
+        builder.Entity<SmsTopup>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.HasIndex(t => t.PaystackReference).IsUnique();
+            e.HasIndex(t => new { t.UserId, t.CreatedAt });
+            e.Property(t => t.AmountNaira).HasPrecision(18, 2);
         });
 
     }
