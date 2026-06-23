@@ -232,7 +232,9 @@ public sealed class EmergencyService : IEmergencyService
             location = new OfficerLocation { UserId = officerId };
             _db.OfficerLocations.Add(location);
         }
+
         location.Location = new NetTopologySuite.Geometries.Point(request.Longitude, request.Latitude) { SRID = 4326 };
+
         location.LastSeenAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResponse<bool>.Ok(true);

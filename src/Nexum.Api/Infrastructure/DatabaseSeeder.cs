@@ -144,17 +144,17 @@ public static class DatabaseSeeder
 
             // Approximate bounding box around Lokoja town center (Kogi State)
             // Centered on 7.8024°N, 6.7430°E — confirmed via OpenStreetMap Nominatim
-            var wkt = "POLYGON((6.7230 7.7850, 6.7630 7.7850, 6.7630 8.0150, 6.7230 8.0150, 6.7230 7.7850))";
-            var reader = new NetTopologySuite.IO.WKTReader();
-            db.GeofenceZones.Add(new()
-            {
-                Name = "Lokoja — Default Boundary",
-                Description = "Default boundary for Lokoja town area, Kogi State. Update via admin portal with precise coordinates.",
-                Boundary = reader.Read(wkt),
-                IsActive = true,
-                ActivatedAt = DateTime.UtcNow,
-            });
-            await db.SaveChangesAsync();
+            //var wkt = "POLYGON((6.7230 7.7850, 6.7630 7.7850, 6.7630 8.0150, 6.7230 8.0150, 6.7230 7.7850))";
+            //var reader = new NetTopologySuite.IO.WKTReader();
+            //db.GeofenceZones.Add(new()
+            //{
+            //    Name = "Lokoja — Default Boundary",
+            //    Description = "Default boundary for Lokoja town area, Kogi State. Update via admin portal with precise coordinates.",
+            //    Boundary = reader.Read(wkt),
+            //    IsActive = true,
+            //    ActivatedAt = DateTime.UtcNow,
+            //});
+            //await db.SaveChangesAsync();
         }
 
         // ── 4. Seed 2 properties (requires host user) ────────
