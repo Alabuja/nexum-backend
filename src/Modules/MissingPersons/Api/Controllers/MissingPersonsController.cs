@@ -23,6 +23,7 @@ public sealed class MissingPersonsController : ControllerBase
 
     [HttpPost]
     [Consumes("multipart/form-data")]
+    [RequestSizeLimit(8 * 1024 * 1024)]
     public async Task<IActionResult> Create([FromForm] CreateMissingPersonAlertForm request, CancellationToken ct)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
